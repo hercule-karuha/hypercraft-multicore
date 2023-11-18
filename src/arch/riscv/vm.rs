@@ -42,6 +42,12 @@ impl<H: HyperCraftHal, G: GuestPageTableTrait> VM<H, G> {
         vcpu.init_page_map(self.gpt.token());
     }
 
+    /// add vcpu to vm
+    pub fn add_vcpu(&mut self, vcpu: VCpu<H>) -> HyperResult {
+        let vcpus = &mut self.vcpus;
+        vcpus.add_vcpu(vcpu)
+    }
+
     #[allow(unused_variables, deprecated)]
     /// Run the host VM's vCPU with ID `vcpu_id`. Does not return.
     pub fn run(&mut self, vcpu_id: usize) {
