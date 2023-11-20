@@ -48,6 +48,11 @@ impl<H: HyperCraftHal, G: GuestPageTableTrait> VM<H, G> {
         vcpus.add_vcpu(vcpu)
     }
 
+    /// get the num of vcpu
+    pub fn get_vcpu_num(&self) -> usize {
+        self.vcpus.get_vcpu_num()
+    }
+
     #[allow(unused_variables, deprecated)]
     /// Run the host VM's vCPU with ID `vcpu_id`. Does not return.
     pub fn run(&mut self, vcpu_id: usize) {

@@ -17,6 +17,7 @@ pub use smp::PerCpu;
 pub use vcpu::VCpu;
 pub use vm::VM;
 pub use vmexit::VmExitInfo;
+pub use vcpu::VmCpuStatus;
 
 use self::csrs::{traps, ReadWriteCsr, RiscvCsrTrait, CSR};
 use self::detect::detect_h_extension;

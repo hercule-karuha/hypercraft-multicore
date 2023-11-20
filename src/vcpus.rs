@@ -3,8 +3,7 @@ use arrayvec::ArrayVec;
 use spin::Once;
 
 use crate::arch::{VCpu, VM};
-use crate::{GuestPageTableTrait, HyperCraftHal, HyperError, HyperResult,};
-
+use crate::{GuestPageTableTrait, HyperCraftHal, HyperError, HyperResult};
 
 /// The maximum number of CPUs we can support.
 pub const MAX_CPUS: usize = 8;
@@ -15,6 +14,7 @@ pub const VM_CPUS_MAX: usize = MAX_CPUS;
 #[derive(Default)]
 pub struct VmCpus<H: HyperCraftHal> {
     inner: [Once<VCpu<H>>; VM_CPUS_MAX],
+    vcpu_num: usize,
     marker: core::marker::PhantomData<H>,
 }
 
@@ -23,6 +23,7 @@ impl<H: HyperCraftHal> VmCpus<H> {
     pub fn new() -> Self {
         Self {
             inner: [Once::INIT; VM_CPUS_MAX],
+            vcpu_num: 0,
             marker: core::marker::PhantomData,
         }
     }
@@ -31,9 +32,14 @@ impl<H: HyperCraftHal> VmCpus<H> {
     pub fn add_vcpu(&mut self, vcpu: VCpu<H>) -> HyperResult<()> {
         let vcpu_id = vcpu.vcpu_id();
         let once_entry = self.inner.get(vcpu_id).ok_or(HyperError::BadState)?;
-
         once_entry.call_once(|| vcpu);
+        self.vcpu_num += 1;
         Ok(())
+    }
+
+    /// get num fo vcpu
+    pub fn get_vcpu_num(&self) -> usize {
+        self.vcpu_num
     }
 
     /// Returns a reference to the vCPU with `vcpu_id` if it exists.

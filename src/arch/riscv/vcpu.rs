@@ -6,6 +6,7 @@ use memoffset::offset_of;
 use tock_registers::LocalRegisterCopy;
 
 // use alloc::sync::Arc;
+use riscv::asm;
 use riscv::register::{htinst, htval, hvip, scause, sstatus, stval};
 
 use crate::arch::vmexit::PrivilegeLevel;
@@ -202,6 +203,7 @@ extern "C" {
     fn _run_guest(state: *mut VmCpuRegisters);
 }
 
+/// The availability of vCPU in a VM.
 pub enum VmCpuStatus {
     /// The vCPU is not powered on.
     PoweredOff,
@@ -211,11 +213,18 @@ pub enum VmCpuStatus {
     Running,
 }
 
+impl Default for VmCpuStatus {
+    fn default() -> Self {
+        Self::PoweredOff
+    }
+}
+
 #[derive(Default)]
 /// A virtual CPU within a guest
 pub struct VCpu<H: HyperCraftHal> {
     vcpu_id: usize,
     regs: VmCpuRegisters,
+    status: VmCpuStatus,
     // gpt: G,
     // pub guest: Arc<Guest>,
     marker: PhantomData<H>,
@@ -248,9 +257,15 @@ impl<H: HyperCraftHal> VCpu<H> {
         Self {
             vcpu_id,
             regs,
+            status: VmCpuStatus::PoweredOff,
             // gpt,
             marker: PhantomData,
         }
+    }
+
+    /// set vcpu Runnable status
+    pub fn set_status(&mut self, status: VmCpuStatus) {
+        self.status = status
     }
 
     /// Initialize nested mmu.
@@ -292,6 +307,12 @@ impl<H: HyperCraftHal> VCpu<H> {
 
     /// Runs this vCPU until traps.
     pub fn run(&mut self) -> VmExitInfo {
+        while let VmCpuStatus::PoweredOff = self.status {
+            unsafe {
+                asm::wfi();
+            }
+        }
+
         let regs = &mut self.regs;
         unsafe {
             // Safe to run the guest as it only touches memory assigned to it by being owned
