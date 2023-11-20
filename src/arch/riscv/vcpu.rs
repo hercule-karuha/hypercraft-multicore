@@ -249,7 +249,7 @@ impl<H: HyperCraftHal> VCpu<H> {
         sstatus.set_spp(sstatus::SPP::Supervisor);
         regs.guest_regs.sstatus = sstatus.bits();
 
-        regs.guest_regs.gprs.set_reg(GprIndex::A0, 0);
+        regs.guest_regs.gprs.set_reg(GprIndex::A0, vcpu_id);
         regs.guest_regs.gprs.set_reg(GprIndex::A1, 0x9000_0000);
 
         // Set entry
@@ -264,7 +264,7 @@ impl<H: HyperCraftHal> VCpu<H> {
     }
 
     /// set the spec and a1 before start
-    pub fn start_init(&mut self, hart_id: u64, start_addr: u64, opaque: u64) {
+    pub fn start_init(&mut self, hart_id: usize, start_addr: usize, opaque: usize) {
         self.regs
             .guest_regs
             .gprs

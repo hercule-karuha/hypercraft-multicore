@@ -48,8 +48,8 @@ impl<H: HyperCraftHal, G: GuestPageTableTrait> VM<H, G> {
 
     /// add vcpu to vm
     pub fn add_vcpu(&mut self, vcpu: VCpu<H>) -> HyperResult {
-        let vcpus = &mut self.vcpus;
-        vcpus.lock().add_vcpu(vcpu)
+        let vcpus = &mut self.vcpus.lock();
+        vcpus.add_vcpu(vcpu)
     }
 
     /// get the num of vcpu
@@ -364,6 +364,12 @@ impl<H: HyperCraftHal, G: GuestPageTableTrait> VM<H, G> {
             unsafe {
                 self.vcpus.force_unlock();
             }
+
+            let start_addr = self.gpt.translate(start_addr).unwrap();
+            let opaque = self.gpt.translate(opaque).unwrap();
+
+            info!("hart start vcpu{} the opaque after translate is {:?}", hartid, opaque);
+
             let vcpu = vcpus.get_vcpu(hartid as usize).unwrap();
             vcpu.start_init(hartid, start_addr, opaque);
             vcpu.set_status(crate::VmCpuStatus::Runnable);
