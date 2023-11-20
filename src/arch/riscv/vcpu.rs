@@ -265,14 +265,13 @@ impl<H: HyperCraftHal> VCpu<H> {
 
     /// set the spec and a1 before start
     pub fn start_init(&mut self, hart_id: usize, start_addr: usize, opaque: usize) {
-        self.regs
-            .guest_regs
-            .gprs
-            .set_reg(GprIndex::A0, hart_id as usize);
-        self.regs
-            .guest_regs
-            .gprs
-            .set_reg(GprIndex::A1, opaque as usize);
+        self.set_gpr(GprIndex::A0, hart_id);
+        self.set_gpr(GprIndex::A1, opaque);
+
+        let mut sstatus = sstatus::read();
+        sstatus.set_sie(false);
+        self.regs.guest_regs.sstatus = sstatus.bits();
+        
         self.regs.guest_regs.sepc = start_addr as usize;
     }
 

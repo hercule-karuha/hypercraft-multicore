@@ -359,7 +359,10 @@ impl<H: HyperCraftHal, G: GuestPageTableTrait> VM<H, G> {
             opaque,
         } = hsm
         {
-            info!("hart start vcpu{} the opaque is {:?}", hartid, opaque);
+            info!(
+                "hart start vcpu{} start_addr:{:#X} opaque : {:#X}",
+                hartid, start_addr, opaque
+            );
             let mut vcpus = self.vcpus.lock();
             unsafe {
                 self.vcpus.force_unlock();
@@ -368,7 +371,10 @@ impl<H: HyperCraftHal, G: GuestPageTableTrait> VM<H, G> {
             let start_addr = self.gpt.translate(start_addr).unwrap();
             let opaque = self.gpt.translate(opaque).unwrap();
 
-            info!("hart start vcpu{} the opaque after translate is {:?}", hartid, opaque);
+            info!(
+                "hart start vcpu{} after translate : start_addr:{:#X} opaque : {:#X}",
+                hartid, start_addr, opaque
+            );
 
             let vcpu = vcpus.get_vcpu(hartid as usize).unwrap();
             vcpu.start_init(hartid, start_addr, opaque);
