@@ -16,10 +16,11 @@ use crate::{
 };
 use riscv_decode::Instruction;
 use sbi_rt::{pmu_counter_get_info, pmu_counter_stop};
+use spin::Mutex;
 
 /// A VM that is being run.
 pub struct VM<H: HyperCraftHal, G: GuestPageTableTrait> {
-    vcpus: VmCpus<H>,
+    vcpus: Mutex<VmCpus<H>>,
     gpt: G,
     vm_pages: VmPages,
     plic: PlicState,
@@ -29,7 +30,7 @@ impl<H: HyperCraftHal, G: GuestPageTableTrait> VM<H, G> {
     /// Create a new VM with `vcpus` vCPUs and `gpt` as the guest page table.
     pub fn new(vcpus: VmCpus<H>, gpt: G) -> HyperResult<Self> {
         Ok(Self {
-            vcpus,
+            vcpus: Mutex::new(vcpus),
             gpt,
             vm_pages: VmPages::default(),
             plic: PlicState::new(0xC00_0000),
@@ -38,19 +39,20 @@ impl<H: HyperCraftHal, G: GuestPageTableTrait> VM<H, G> {
 
     /// Initialize `VCpu` by `vcpu_id`.
     pub fn init_vcpu(&mut self, vcpu_id: usize) {
-        let vcpu = self.vcpus.get_vcpu(vcpu_id).unwrap();
+        let mut vcpus = self.vcpus.lock();
+        let vcpu = vcpus.get_vcpu(vcpu_id).unwrap();
         vcpu.init_page_map(self.gpt.token());
     }
 
     /// add vcpu to vm
     pub fn add_vcpu(&mut self, vcpu: VCpu<H>) -> HyperResult {
         let vcpus = &mut self.vcpus;
-        vcpus.add_vcpu(vcpu)
+        vcpus.lock().add_vcpu(vcpu)
     }
 
     /// get the num of vcpu
     pub fn get_vcpu_num(&self) -> usize {
-        self.vcpus.get_vcpu_num()
+        self.vcpus.lock().get_vcpu_num()
     }
 
     #[allow(unused_variables, deprecated)]
@@ -62,7 +64,11 @@ impl<H: HyperCraftHal, G: GuestPageTableTrait> VM<H, G> {
             let mut len = 4;
             let mut advance_pc = false;
             {
-                let vcpu = self.vcpus.get_vcpu(vcpu_id).unwrap();
+                let mut vcpus = self.vcpus.lock();
+                unsafe {
+                    self.vcpus.force_unlock();
+                }
+                let vcpu = vcpus.get_vcpu(vcpu_id).unwrap();
                 vm_exit_info = vcpu.run();
                 vcpu.save_gprs(&mut gprs);
             }
@@ -145,7 +151,11 @@ impl<H: HyperCraftHal, G: GuestPageTableTrait> VM<H, G> {
             }
 
             {
-                let vcpu = self.vcpus.get_vcpu(vcpu_id).unwrap();
+                let mut vcpus = self.vcpus.lock();
+                unsafe {
+                    self.vcpus.force_unlock();
+                }
+                let vcpu = vcpus.get_vcpu(vcpu_id).unwrap();
                 vcpu.restore_gprs(&gprs);
                 if advance_pc {
                     vcpu.advance_pc(len);
