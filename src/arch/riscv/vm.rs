@@ -3,6 +3,7 @@ use core::panic;
 use super::{
     devices::plic::{PlicState, MAX_CONTEXTS},
     regs::GeneralPurposeRegisters,
+    sbi::HsmFunction,
     sbi::PmuFunction,
     sbi::{BaseFunction, RemoteFenceFunction},
     traps,
@@ -14,6 +15,7 @@ use crate::{
     arch::sbi::SBI_ERR_NOT_SUPPORTED, vcpus::VM_CPUS_MAX, GprIndex, GuestPageTableTrait,
     GuestPhysAddr, GuestVirtAddr, HyperCraftHal, HyperError, HyperResult, VCpu, VmCpus, VmExitInfo,
 };
+use riscv::asm;
 use riscv_decode::Instruction;
 use sbi_rt::{pmu_counter_get_info, pmu_counter_stop};
 use spin::Mutex;
@@ -69,6 +71,12 @@ impl<H: HyperCraftHal, G: GuestPageTableTrait> VM<H, G> {
                     self.vcpus.force_unlock();
                 }
                 let vcpu = vcpus.get_vcpu(vcpu_id).unwrap();
+                while let vcpu::VmCpuStatus::PoweredOff = vcpu.get_status() {
+                    core::hint::spin_loop();
+                    // unsafe {
+                    //     asm::wfi();
+                    // }
+                }
                 vm_exit_info = vcpu.run();
                 vcpu.save_gprs(&mut gprs);
             }
@@ -105,6 +113,9 @@ impl<H: HyperCraftHal, G: GuestPageTableTrait> VM<H, G> {
                             }
                             HyperCallMsg::PMU(pmu) => {
                                 self.handle_pmu_function(pmu, &mut gprs).unwrap();
+                            }
+                            HyperCallMsg::HSM(hsm) => {
+                                self.handle_hsm_fumction(hsm, &mut gprs).unwrap()
                             }
                             _ => todo!(),
                         }
@@ -333,6 +344,34 @@ impl<H: HyperCraftHal, G: GuestPageTableTrait> VM<H, G> {
                 gprs.set_reg(GprIndex::A0, sbi_ret.error);
                 gprs.set_reg(GprIndex::A1, sbi_ret.value);
             }
+        }
+        Ok(())
+    }
+
+    fn handle_hsm_fumction(
+        &mut self,
+        hsm: HsmFunction,
+        gprs: &mut GeneralPurposeRegisters,
+    ) -> HyperResult<()> {
+        if let HsmFunction::HartStart {
+            hartid,
+            start_addr,
+            opaque,
+        } = hsm
+        {
+            info!("hart start vcpu{} the opaque is {:?}", hartid, opaque);
+            let mut vcpus = self.vcpus.lock();
+            unsafe {
+                self.vcpus.force_unlock();
+            }
+            let vcpu = vcpus.get_vcpu(hartid as usize).unwrap();
+            vcpu.start_init(hartid, start_addr, opaque);
+            vcpu.set_status(crate::VmCpuStatus::Runnable);
+            // let hart_mask: usize = 1 << hartid;
+            // sbi_rt::send_ipi(hart_mask, usize::MAX);
+            gprs.set_reg(GprIndex::A0, 0);
+        } else {
+            panic!("Unsupported yet")
         }
         Ok(())
     }

@@ -263,9 +263,31 @@ impl<H: HyperCraftHal> VCpu<H> {
         }
     }
 
+    /// set the spec and a1 before start
+    pub fn start_init(&mut self, hart_id: u64, start_addr: u64, opaque: u64) {
+        self.regs
+            .guest_regs
+            .gprs
+            .set_reg(GprIndex::A0, hart_id as usize);
+        self.regs
+            .guest_regs
+            .gprs
+            .set_reg(GprIndex::A1, opaque as usize);
+        self.regs.guest_regs.sepc = start_addr as usize;
+    }
+
     /// set vcpu Runnable status
     pub fn set_status(&mut self, status: VmCpuStatus) {
         self.status = status
+    }
+
+    /// get vcpu Runnable status
+    pub fn get_status(&self) -> VmCpuStatus {
+        match self.status {
+            VmCpuStatus::PoweredOff => VmCpuStatus::PoweredOff,
+            VmCpuStatus::Runnable => VmCpuStatus::Runnable,
+            VmCpuStatus::Running => VmCpuStatus::Running,
+        }
     }
 
     /// Initialize nested mmu.
@@ -307,12 +329,6 @@ impl<H: HyperCraftHal> VCpu<H> {
 
     /// Runs this vCPU until traps.
     pub fn run(&mut self) -> VmExitInfo {
-        while let VmCpuStatus::PoweredOff = self.status {
-            unsafe {
-                asm::wfi();
-            }
-        }
-
         let regs = &mut self.regs;
         unsafe {
             // Safe to run the guest as it only touches memory assigned to it by being owned
