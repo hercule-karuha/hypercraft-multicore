@@ -271,8 +271,8 @@ impl<H: HyperCraftHal> VCpu<H> {
         let mut sstatus = sstatus::read();
         sstatus.set_sie(false);
         self.regs.guest_regs.sstatus = sstatus.bits();
-        
-        self.regs.guest_regs.sepc = start_addr as usize;
+
+        self.regs.guest_regs.sepc = start_addr;
     }
 
     /// set vcpu Runnable status
