@@ -359,8 +359,8 @@ impl<H: HyperCraftHal, G: GuestPageTableTrait> VM<H, G> {
                 "hart start vcpu{} start_addr:{:#X} opaque : {:#X}",
                 hartid, start_addr, opaque
             );
-            // let start_addr = self.gpt.translate(start_addr).unwrap();
-            // let opaque = self.gpt.translate(opaque).unwrap();
+            let start_addr = self.gpt.translate(start_addr).unwrap();
+            let opaque = self.gpt.translate(opaque).unwrap();
 
             // info!(
             //     "hart start vcpu{} after translate : start_addr:{:#X} opaque : {:#X}",
