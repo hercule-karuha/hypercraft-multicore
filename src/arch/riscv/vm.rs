@@ -22,7 +22,7 @@ use spin::Mutex;
 
 /// A VM that is being run.
 pub struct VM<H: HyperCraftHal, G: GuestPageTableTrait> {
-    vcpus: Mutex<VmCpus<H>>,
+    vcpus: VmCpus<H>,
     gpt: G,
     vm_pages: VmPages,
     plic: PlicState,
@@ -32,7 +32,7 @@ impl<H: HyperCraftHal, G: GuestPageTableTrait> VM<H, G> {
     /// Create a new VM with `vcpus` vCPUs and `gpt` as the guest page table.
     pub fn new(vcpus: VmCpus<H>, gpt: G) -> HyperResult<Self> {
         Ok(Self {
-            vcpus: Mutex::new(vcpus),
+            vcpus: vcpus,
             gpt,
             vm_pages: VmPages::default(),
             plic: PlicState::new(0xC00_0000),
@@ -41,26 +41,18 @@ impl<H: HyperCraftHal, G: GuestPageTableTrait> VM<H, G> {
 
     /// Initialize `VCpu` by `vcpu_id`.
     pub fn init_vcpu(&mut self, vcpu_id: usize) {
-        let mut vcpus = self.vcpus.lock();
-        let vcpu = vcpus.get_vcpu(vcpu_id).unwrap();
+        let vcpu = self.vcpus.get_vcpu(vcpu_id).unwrap();
         vcpu.init_page_map(self.gpt.token());
     }
 
     /// add vcpu to vm
     pub fn add_vcpu(&mut self, vcpu: VCpu<H>) -> HyperResult {
-        let vcpus = &mut self.vcpus.lock();
-        vcpus.add_vcpu(vcpu)
-    }
-
-    /// get the num of vcpu
-    pub fn get_vcpu_num(&self) -> usize {
-        self.vcpus.lock().get_vcpu_num()
+        self.vcpus.add_vcpu(vcpu)
     }
 
     /// get the status by vcpu id
-    pub fn is_runnable(&self, vcpu_id: usize) -> bool {
-        let mut vcpus = self.vcpus.lock();
-        let vcpu = vcpus.get_vcpu(vcpu_id).unwrap();
+    pub fn is_runnable(&mut self, vcpu_id: usize) -> bool {
+        let vcpu = self.vcpus.get_vcpu(vcpu_id).unwrap();
         // unsafe {
         //     self.vcpus.force_unlock();
         // }
@@ -78,16 +70,12 @@ impl<H: HyperCraftHal, G: GuestPageTableTrait> VM<H, G> {
         while !self.is_runnable(vcpu_id) {
             core::hint::spin_loop();
         }
+        info!("vm run vcpu{}", vcpu_id);
         loop {
             let mut len = 4;
             let mut advance_pc = false;
             {
-                let mut vcpus = self.vcpus.lock();
-                let vcpu = vcpus.get_vcpu(vcpu_id).unwrap();
-                unsafe {
-                    self.vcpus.force_unlock();
-                }
-                info!("vm run ok vcpu{}", vcpu_id);
+                let vcpu = self.vcpus.get_vcpu(vcpu_id).unwrap();
                 vm_exit_info = vcpu.run();
                 vcpu.save_gprs(&mut gprs);
             }
@@ -174,12 +162,7 @@ impl<H: HyperCraftHal, G: GuestPageTableTrait> VM<H, G> {
             }
 
             {
-                let mut vcpus = self.vcpus.lock();
-                let vcpu = vcpus.get_vcpu(vcpu_id).unwrap();
-                unsafe {
-                    self.vcpus.force_unlock();
-                }
-                info!("vm exit on vcpu{} ok", vcpu_id);
+                let vcpu = self.vcpus.get_vcpu(vcpu_id).unwrap();
                 vcpu.restore_gprs(&gprs);
                 if advance_pc {
                     vcpu.advance_pc(len);
@@ -376,20 +359,15 @@ impl<H: HyperCraftHal, G: GuestPageTableTrait> VM<H, G> {
                 "hart start vcpu{} start_addr:{:#X} opaque : {:#X}",
                 hartid, start_addr, opaque
             );
-            let mut vcpus = self.vcpus.lock();
+            // let start_addr = self.gpt.translate(start_addr).unwrap();
+            // let opaque = self.gpt.translate(opaque).unwrap();
 
-            let start_addr = self.gpt.translate(start_addr).unwrap();
-            let opaque = self.gpt.translate(opaque).unwrap();
+            // info!(
+            //     "hart start vcpu{} after translate : start_addr:{:#X} opaque : {:#X}",
+            //     hartid, start_addr, opaque
+            // );
 
-            info!(
-                "hart start vcpu{} after translate : start_addr:{:#X} opaque : {:#X}",
-                hartid, start_addr, opaque
-            );
-
-            let vcpu = vcpus.get_vcpu(hartid as usize).unwrap();
-            unsafe {
-                self.vcpus.force_unlock();
-            }
+            let vcpu = self.vcpus.get_vcpu(hartid as usize).unwrap();
             vcpu.start_init(hartid, start_addr, opaque);
             vcpu.set_status(crate::VmCpuStatus::Runnable);
             // let hart_mask: usize = 1 << hartid;
