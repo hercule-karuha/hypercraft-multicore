@@ -281,12 +281,8 @@ impl<H: HyperCraftHal> VCpu<H> {
     }
 
     /// get vcpu Runnable status
-    pub fn get_status(&self) -> VmCpuStatus {
-        match self.status {
-            VmCpuStatus::PoweredOff => VmCpuStatus::PoweredOff,
-            VmCpuStatus::Runnable => VmCpuStatus::Runnable,
-            VmCpuStatus::Running => VmCpuStatus::Running,
-        }
+    pub fn get_status(&self) -> &VmCpuStatus {
+        &self.status
     }
 
     /// Initialize nested mmu.

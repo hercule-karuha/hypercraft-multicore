@@ -57,11 +57,27 @@ impl<H: HyperCraftHal, G: GuestPageTableTrait> VM<H, G> {
         self.vcpus.lock().get_vcpu_num()
     }
 
+    /// get the status by vcpu id
+    pub fn is_runnable(&self, vcpu_id: usize) -> bool {
+        let mut vcpus = self.vcpus.lock();
+        let vcpu = vcpus.get_vcpu(vcpu_id).unwrap();
+        // unsafe {
+        //     self.vcpus.force_unlock();
+        // }
+        match vcpu.get_status() {
+            vcpu::VmCpuStatus::PoweredOff => false,
+            _ => true,
+        }
+    }
+
     #[allow(unused_variables, deprecated)]
     /// Run the host VM's vCPU with ID `vcpu_id`. Does not return.
     pub fn run(&mut self, vcpu_id: usize) {
         let mut vm_exit_info: VmExitInfo;
         let mut gprs = GeneralPurposeRegisters::default();
+        while !self.is_runnable(vcpu_id) {
+            core::hint::spin_loop();
+        }
         loop {
             let mut len = 4;
             let mut advance_pc = false;
@@ -71,15 +87,11 @@ impl<H: HyperCraftHal, G: GuestPageTableTrait> VM<H, G> {
                 unsafe {
                     self.vcpus.force_unlock();
                 }
-                while let vcpu::VmCpuStatus::PoweredOff = vcpu.get_status() {
-                    core::hint::spin_loop();
-                    // unsafe {
-                    //     asm::wfi();
-                    // }
-                }
+                info!("vm run ok vcpu{}", vcpu_id);
                 vm_exit_info = vcpu.run();
                 vcpu.save_gprs(&mut gprs);
             }
+            // info!("vm exit on vcpu{}", vcpu_id);
 
             match vm_exit_info {
                 VmExitInfo::Ecall(sbi_msg) => {
@@ -163,10 +175,11 @@ impl<H: HyperCraftHal, G: GuestPageTableTrait> VM<H, G> {
 
             {
                 let mut vcpus = self.vcpus.lock();
+                let vcpu = vcpus.get_vcpu(vcpu_id).unwrap();
                 unsafe {
                     self.vcpus.force_unlock();
                 }
-                let vcpu = vcpus.get_vcpu(vcpu_id).unwrap();
+                info!("vm exit on vcpu{} ok", vcpu_id);
                 vcpu.restore_gprs(&gprs);
                 if advance_pc {
                     vcpu.advance_pc(len);
@@ -382,6 +395,7 @@ impl<H: HyperCraftHal, G: GuestPageTableTrait> VM<H, G> {
             // let hart_mask: usize = 1 << hartid;
             // sbi_rt::send_ipi(hart_mask, usize::MAX);
             gprs.set_reg(GprIndex::A0, 0);
+            gprs.set_reg(GprIndex::A1, 0);
         } else {
             panic!("Unsupported yet")
         }
