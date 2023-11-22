@@ -241,19 +241,19 @@ impl<H: HyperCraftHal, G: GuestPageTableTrait> VM<H, G> {
         Ok(len)
     }
 
-    fn handle_irq(&mut self, _vcpu_id: usize) {
-        let context_id = 1;
+    fn handle_irq(&mut self, vcpu_id: usize) {
+        let context_id = vcpu_id * 2 + 1;
         let claim_and_complete_addr = self.plic.base() + 0x0020_0004 + 0x1000 * context_id;
         let irq = unsafe { core::ptr::read_volatile(claim_and_complete_addr as *const u32) };
-        assert!(irq != 0);
+        // assert!(irq != 0);
         self.plic.claim_complete[context_id] = irq;
 
         CSR.hvip
             .read_and_set_bits(traps::interrupt::VIRTUAL_SUPERVISOR_EXTERNAL);
     }
 
-    fn handle_soft_irq(&mut self, _vcpu_id: usize) {
-        let context_id = 3;
+    fn handle_soft_irq(&mut self, vcpu_id: usize) {
+        let context_id = vcpu_id * 2 + 1;
         let claim_and_complete_addr = self.plic.base() + 0x0020_0004 + 0x1000 * context_id;
         let irq = unsafe { core::ptr::read_volatile(claim_and_complete_addr as *const u32) };
         // assert!(irq != 0);
@@ -362,6 +362,23 @@ impl<H: HyperCraftHal, G: GuestPageTableTrait> VM<H, G> {
                     hart_mask_base as usize,
                     start_addr as usize,
                     size as usize,
+                );
+                gprs.set_reg(GprIndex::A0, sbi_ret.error);
+                gprs.set_reg(GprIndex::A1, sbi_ret.value);
+            }
+            RemoteFenceFunction::RemoteSFenceVMAASID {
+                hart_mask,
+                hart_mask_base,
+                start_addr,
+                size,
+                asid,
+            } => {
+                let sbi_ret = sbi_rt::remote_sfence_vma_asid(
+                    hart_mask as usize,
+                    hart_mask_base as usize,
+                    start_addr as usize,
+                    size as usize,
+                    asid as usize,
                 );
                 gprs.set_reg(GprIndex::A0, sbi_ret.error);
                 gprs.set_reg(GprIndex::A1, sbi_ret.value);
