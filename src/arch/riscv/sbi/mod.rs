@@ -1,6 +1,7 @@
 mod base;
 mod dbcn;
 mod hsm;
+mod ipi;
 mod pmu;
 mod rfnc;
 mod srst;
@@ -9,6 +10,7 @@ use crate::{HyperError, HyperResult};
 pub use base::BaseFunction;
 use dbcn::DebugConsoleFunction;
 pub use hsm::HsmFunction;
+pub use ipi::IPIFunction;
 pub use pmu::PmuFunction;
 pub use rfnc::RemoteFenceFunction;
 use sbi_spec;
@@ -62,6 +64,8 @@ pub enum SbiMessage {
     PMU(PmuFunction),
     /// HART START
     HSM(HsmFunction),
+    /// IPI
+    IPI(IPIFunction),
 }
 
 impl SbiMessage {
@@ -81,6 +85,7 @@ impl SbiMessage {
             }
             sbi_spec::pmu::EID_PMU => PmuFunction::from_regs(args).map(SbiMessage::PMU),
             sbi_spec::hsm::EID_HSM => HsmFunction::from_regs(args).map(SbiMessage::HSM),
+            sbi_spec::spi::EID_SPI => IPIFunction::from_regs(args).map(SbiMessage::IPI),
             _ => {
                 error!("args: {:?}", args);
                 error!("args[7]: {:#x}", args[7]);

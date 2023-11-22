@@ -366,6 +366,7 @@ impl<H: HyperCraftHal> VCpu<H> {
                     priv_level: PrivilegeLevel::from_hstatus(regs.guest_regs.hstatus),
                 }
             }
+            Trap::Interrupt(Interrupt::SupervisorSoft) => VmExitInfo::SupervisorSoft,
             _ => {
                 panic!(
                     "Unhandled trap: {:?}, sepc: {:#x}, stval: {:#x}",

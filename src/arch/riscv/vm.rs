@@ -4,6 +4,7 @@ use super::{
     devices::plic::{PlicState, MAX_CONTEXTS},
     regs::GeneralPurposeRegisters,
     sbi::HsmFunction,
+    sbi::IPIFunction,
     sbi::PmuFunction,
     sbi::{BaseFunction, RemoteFenceFunction},
     traps,
@@ -116,6 +117,14 @@ impl<H: HyperCraftHal, G: GuestPageTableTrait> VM<H, G> {
                             HyperCallMsg::HSM(hsm) => {
                                 self.handle_hsm_fumction(hsm, &mut gprs).unwrap()
                             }
+                            HyperCallMsg::IPI(ipi) => {
+                                let IPIFunction::SendIPI {
+                                    hart_mask,
+                                    hart_mask_base,
+                                } = ipi;
+                                sbi_rt::send_ipi(hart_mask, hart_mask_base);
+                                gprs.set_reg(GprIndex::A0, 0);
+                            }
                             _ => todo!(),
                         }
                         advance_pc = true;
@@ -156,7 +165,13 @@ impl<H: HyperCraftHal, G: GuestPageTableTrait> VM<H, G> {
                     CSR.sie
                         .read_and_clear_bits(traps::interrupt::SUPERVISOR_TIMER);
                 }
-                VmExitInfo::ExternalInterruptEmulation => self.handle_irq(),
+                VmExitInfo::ExternalInterruptEmulation => self.handle_irq(vcpu_id),
+                VmExitInfo::SupervisorSoft => {
+                    sbi_rt::legacy::clear_ipi();
+                    // CSR.hvip
+                    //     .read_and_clear_bits(traps::interrupt::VIRTUAL_SUPERVISOR_SOFT);
+                    self.handle_soft_irq(vcpu_id)
+                }
                 _ => {}
             }
 
@@ -226,7 +241,7 @@ impl<H: HyperCraftHal, G: GuestPageTableTrait> VM<H, G> {
         Ok(len)
     }
 
-    fn handle_irq(&mut self) {
+    fn handle_irq(&mut self, _vcpu_id: usize) {
         let context_id = 1;
         let claim_and_complete_addr = self.plic.base() + 0x0020_0004 + 0x1000 * context_id;
         let irq = unsafe { core::ptr::read_volatile(claim_and_complete_addr as *const u32) };
@@ -235,6 +250,17 @@ impl<H: HyperCraftHal, G: GuestPageTableTrait> VM<H, G> {
 
         CSR.hvip
             .read_and_set_bits(traps::interrupt::VIRTUAL_SUPERVISOR_EXTERNAL);
+    }
+
+    fn handle_soft_irq(&mut self, _vcpu_id: usize) {
+        let context_id = 3;
+        let claim_and_complete_addr = self.plic.base() + 0x0020_0004 + 0x1000 * context_id;
+        let irq = unsafe { core::ptr::read_volatile(claim_and_complete_addr as *const u32) };
+        // assert!(irq != 0);
+        self.plic.claim_complete[context_id] = irq;
+
+        CSR.hvip
+            .read_and_set_bits(traps::interrupt::VIRTUAL_SUPERVISOR_SOFT);
     }
 
     fn handle_base_function(
