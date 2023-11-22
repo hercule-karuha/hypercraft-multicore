@@ -42,7 +42,7 @@ impl<H: HyperCraftHal, G: GuestPageTableTrait> VM<H, G> {
     /// Initialize `VCpu` by `vcpu_id`.
     pub fn init_vcpu(&mut self, vcpu_id: usize) {
         let vcpu = self.vcpus.get_vcpu(vcpu_id).unwrap();
-        vcpu.init_page_map(self.gpt.token());
+        vcpu.lock().init_page_map(self.gpt.token());
     }
 
     /// add vcpu to vm
@@ -56,7 +56,7 @@ impl<H: HyperCraftHal, G: GuestPageTableTrait> VM<H, G> {
         // unsafe {
         //     self.vcpus.force_unlock();
         // }
-        match vcpu.get_status() {
+        match vcpu.lock().get_status() {
             vcpu::VmCpuStatus::PoweredOff => false,
             _ => true,
         }
@@ -76,10 +76,10 @@ impl<H: HyperCraftHal, G: GuestPageTableTrait> VM<H, G> {
             let mut advance_pc = false;
             {
                 let vcpu = self.vcpus.get_vcpu(vcpu_id).unwrap();
+                let mut vcpu = vcpu.lock();
                 vm_exit_info = vcpu.run();
                 vcpu.save_gprs(&mut gprs);
             }
-
             match vm_exit_info {
                 VmExitInfo::Ecall(sbi_msg) => {
                     if let Some(sbi_msg) = sbi_msg {
@@ -162,6 +162,7 @@ impl<H: HyperCraftHal, G: GuestPageTableTrait> VM<H, G> {
 
             {
                 let vcpu = self.vcpus.get_vcpu(vcpu_id).unwrap();
+                let mut vcpu = vcpu.lock();
                 vcpu.restore_gprs(&gprs);
                 if advance_pc {
                     vcpu.advance_pc(len);
@@ -367,6 +368,7 @@ impl<H: HyperCraftHal, G: GuestPageTableTrait> VM<H, G> {
             // );
 
             let vcpu = self.vcpus.get_vcpu(hartid as usize).unwrap();
+            let mut vcpu = vcpu.lock();
             vcpu.start_init(hartid, start_addr, opaque);
             vcpu.set_status(crate::VmCpuStatus::Runnable);
             // let hart_mask: usize = 1 << hartid;

@@ -30,7 +30,7 @@ impl<H: HyperCraftHal> PerCpu<H> {
     /// area is initialized and loaded into TP as well.
     pub fn init(boot_hart_id: usize, stack_size: usize) -> HyperResult<()> {
         // TODO: get cpu info by device tree
-        let cpu_nums: usize = 4;
+        let cpu_nums: usize = 2;
         let pcpu_size = core::mem::size_of::<PerCpu<H>>() * cpu_nums;
         debug!("pcpu_size: {:#x}", pcpu_size);
         let pcpu_pages = H::alloc_pages((pcpu_size + PAGE_SIZE_4K - 1) / PAGE_SIZE_4K)

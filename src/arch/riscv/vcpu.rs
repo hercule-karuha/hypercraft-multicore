@@ -265,8 +265,8 @@ impl<H: HyperCraftHal> VCpu<H> {
 
     /// set the spec and a1 before start
     pub fn start_init(&mut self, hart_id: usize, start_addr: usize, opaque: usize) {
-        self.set_gpr(GprIndex::A0, hart_id);
-        self.set_gpr(GprIndex::A1, opaque);
+        self.regs.guest_regs.gprs.set_reg(GprIndex::A0, hart_id);
+        self.regs.guest_regs.gprs.set_reg(GprIndex::A1, opaque);
         self.regs.guest_regs.sepc = start_addr;
     }
 
