@@ -80,10 +80,6 @@ impl<H: HyperCraftHal, G: GuestPageTableTrait> VM<H, G> {
                 vcpu.save_gprs(&mut gprs);
             }
 
-            if vcpu_id != 0 {
-                info!("vm exit on vcpu{}", vcpu_id);
-            }
-
             match vm_exit_info {
                 VmExitInfo::Ecall(sbi_msg) => {
                     if let Some(sbi_msg) = sbi_msg {
