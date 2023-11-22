@@ -79,7 +79,10 @@ impl<H: HyperCraftHal, G: GuestPageTableTrait> VM<H, G> {
                 vm_exit_info = vcpu.run();
                 vcpu.save_gprs(&mut gprs);
             }
-            // info!("vm exit on vcpu{}", vcpu_id);
+
+            if vcpu_id != 0 {
+                info!("vm exit on vcpu{}", vcpu_id);
+            }
 
             match vm_exit_info {
                 VmExitInfo::Ecall(sbi_msg) => {
@@ -359,8 +362,8 @@ impl<H: HyperCraftHal, G: GuestPageTableTrait> VM<H, G> {
                 "hart start vcpu{} start_addr:{:#X} opaque : {:#X}",
                 hartid, start_addr, opaque
             );
-            let start_addr = self.gpt.translate(start_addr).unwrap();
-            let opaque = self.gpt.translate(opaque).unwrap();
+            // let start_addr = self.gpt.translate(0x10401073).unwrap();
+            // let opaque = self.gpt.translate(opaque).unwrap();
 
             // info!(
             //     "hart start vcpu{} after translate : start_addr:{:#X} opaque : {:#X}",
@@ -373,7 +376,6 @@ impl<H: HyperCraftHal, G: GuestPageTableTrait> VM<H, G> {
             // let hart_mask: usize = 1 << hartid;
             // sbi_rt::send_ipi(hart_mask, usize::MAX);
             gprs.set_reg(GprIndex::A0, 0);
-            gprs.set_reg(GprIndex::A1, 0);
         } else {
             panic!("Unsupported yet")
         }
