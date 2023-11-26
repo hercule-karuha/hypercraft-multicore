@@ -246,6 +246,7 @@ impl<H: HyperCraftHal, G: GuestPageTableTrait> VM<H, G> {
         let context_id = vcpu_id * 2 + 1;
         let claim_and_complete_addr = self.plic.base() + 0x0020_0004 + 0x1000 * context_id;
         let irq = unsafe { core::ptr::read_volatile(claim_and_complete_addr as *const u32) };
+        // debug!("irq=={:?}", irq);
         assert!(irq != 0);
         self.plic.claim_complete[context_id] = irq;
 
@@ -255,10 +256,10 @@ impl<H: HyperCraftHal, G: GuestPageTableTrait> VM<H, G> {
 
     fn handle_soft_irq(&mut self, vcpu_id: usize) {
         let context_id = vcpu_id * 2 + 1;
-        let claim_and_complete_addr = self.plic.base() + 0x0020_0004 + 0x1000 * context_id;
-        let irq = unsafe { core::ptr::read_volatile(claim_and_complete_addr as *const u32) };
-        assert!(irq != 0);
-        self.plic.claim_complete[context_id] = irq;
+        // let claim_and_complete_addr = self.plic.base() + 0x0020_0004 + 0x1000 * context_id;
+        // let irq = unsafe { core::ptr::read_volatile(claim_and_complete_addr as *const u32) };
+        // assert!(irq != 0);
+        self.plic.claim_complete[context_id] = 8;
 
         CSR.hvip
             .read_and_set_bits(traps::interrupt::VIRTUAL_SUPERVISOR_SOFT);
