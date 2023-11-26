@@ -122,8 +122,9 @@ impl<H: HyperCraftHal, G: GuestPageTableTrait> VM<H, G> {
                                     hart_mask,
                                     hart_mask_base,
                                 } = ipi;
-                                sbi_rt::send_ipi(hart_mask, hart_mask_base);
-                                gprs.set_reg(GprIndex::A0, 0);
+                                let sbiret = sbi_rt::send_ipi(hart_mask, hart_mask_base);
+                                gprs.set_reg(GprIndex::A0, sbiret.error);
+                                gprs.set_reg(GprIndex::A0, sbiret.value);
                             }
                             _ => todo!(),
                         }
@@ -168,8 +169,8 @@ impl<H: HyperCraftHal, G: GuestPageTableTrait> VM<H, G> {
                 VmExitInfo::ExternalInterruptEmulation => self.handle_irq(vcpu_id),
                 VmExitInfo::SupervisorSoft => {
                     sbi_rt::legacy::clear_ipi();
-                    // CSR.hvip
-                    //    .read_and_clear_bits(traps::interrupt::VIRTUAL_SUPERVISOR_SOFT);
+                    //CSR.hvip
+                    //    .read_and_clear_bits(traps::interrupt::SUPERVISOR_SOFT);
                     self.handle_soft_irq(vcpu_id)
                 }
                 _ => {}
@@ -245,7 +246,7 @@ impl<H: HyperCraftHal, G: GuestPageTableTrait> VM<H, G> {
         let context_id = vcpu_id * 2 + 1;
         let claim_and_complete_addr = self.plic.base() + 0x0020_0004 + 0x1000 * context_id;
         let irq = unsafe { core::ptr::read_volatile(claim_and_complete_addr as *const u32) };
-        // assert!(irq != 0);
+        assert!(irq != 0);
         self.plic.claim_complete[context_id] = irq;
 
         CSR.hvip
@@ -256,7 +257,7 @@ impl<H: HyperCraftHal, G: GuestPageTableTrait> VM<H, G> {
         let context_id = vcpu_id * 2 + 1;
         let claim_and_complete_addr = self.plic.base() + 0x0020_0004 + 0x1000 * context_id;
         let irq = unsafe { core::ptr::read_volatile(claim_and_complete_addr as *const u32) };
-        // assert!(irq != 0);
+        assert!(irq != 0);
         self.plic.claim_complete[context_id] = irq;
 
         CSR.hvip
