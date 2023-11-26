@@ -38,11 +38,11 @@ impl PlicState {
             // threshold/claim/complete
             let hart = (offset - 0x200000) / 0x1000;
             let index = ((offset - 0x200000) & 0xfff) >> 2;
-            if index == 1 {
+            if index % 2 == 1 {
                 // debug!("PLIC read@{:#x} -> {:#x}", addr, self.claim_complete[hart]);
                 return self.claim_complete[hart];
             }
-            todo!()
+            // todo!()
         }
         todo!()
     }
@@ -54,13 +54,13 @@ impl PlicState {
         if (0x200000..0x200000 + 0x1000 * MAX_CONTEXTS).contains(&offset) {
             let hart = (offset - 0x200000) / 0x1000;
             let index = ((offset - 0x200000) & 0xfff) >> 2;
-            if index == 0 {
+            if index % 2 == 0 {
                 // threshold
                 self.thresholds[hart] = val;
                 unsafe {
                     core::ptr::write_volatile(addr as *mut u32, val);
                 }
-            } else if index == 1 {
+            } else if index % 2 == 1 {
                 // claim
                 unsafe {
                     core::ptr::write_volatile(addr as *mut u32, val);

@@ -169,7 +169,7 @@ impl<H: HyperCraftHal, G: GuestPageTableTrait> VM<H, G> {
                 VmExitInfo::SupervisorSoft => {
                     sbi_rt::legacy::clear_ipi();
                     // CSR.hvip
-                    //     .read_and_clear_bits(traps::interrupt::VIRTUAL_SUPERVISOR_SOFT);
+                    //    .read_and_clear_bits(traps::interrupt::VIRTUAL_SUPERVISOR_SOFT);
                     self.handle_soft_irq(vcpu_id)
                 }
                 _ => {}
@@ -341,7 +341,7 @@ impl<H: HyperCraftHal, G: GuestPageTableTrait> VM<H, G> {
         rfnc: RemoteFenceFunction,
         gprs: &mut GeneralPurposeRegisters,
     ) -> HyperResult<()> {
-        gprs.set_reg(GprIndex::A0, 0);
+        // gprs.set_reg(GprIndex::A0, 0);
         match rfnc {
             RemoteFenceFunction::FenceI {
                 hart_mask,
@@ -402,20 +402,12 @@ impl<H: HyperCraftHal, G: GuestPageTableTrait> VM<H, G> {
                 "hart start vcpu{} start_addr:{:#X} opaque : {:#X}",
                 hartid, start_addr, opaque
             );
-            // let start_addr = self.gpt.translate(0x10401073).unwrap();
-            // let opaque = self.gpt.translate(opaque).unwrap();
-
-            // info!(
-            //     "hart start vcpu{} after translate : start_addr:{:#X} opaque : {:#X}",
-            //     hartid, start_addr, opaque
-            // );
 
             let vcpu = self.vcpus.get_vcpu(hartid as usize).unwrap();
             let mut vcpu = vcpu.lock();
             vcpu.start_init(hartid, start_addr, opaque);
             vcpu.set_status(crate::VmCpuStatus::Runnable);
-            // let hart_mask: usize = 1 << hartid;
-            // sbi_rt::send_ipi(hart_mask, usize::MAX);
+
             gprs.set_reg(GprIndex::A0, 0);
         } else {
             panic!("Unsupported yet")
